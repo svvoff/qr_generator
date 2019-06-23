@@ -1,5 +1,7 @@
 import qrcode
 import random
+from os import listdir
+from os.path import isfile, join
 from PIL import Image, ImageDraw
 
 class ImageFactory(qrcode.image.base.BaseImage):
@@ -46,10 +48,10 @@ class TextProvider:
         return qr_string
 
 
-textProvider = TextProvider()
 
 
-def create_qr(data):
+
+def create_qr(data, back_color="white"):
     qr = qrcode.QRCode(
         version=1,
         error_correction=qrcode.constants.ERROR_CORRECT_L,
@@ -60,27 +62,74 @@ def create_qr(data):
     qr.add_data(data)
     qr.make(fit=True)
 
-    return qr.make_image(image_factory=ImageFactory, fill_color="black", back_color="#C1BAAE")
+    return qr.make_image(image_factory=ImageFactory, fill_color="black", back_color=back_color)
 
-angle = 0
-for i in range(0, 10):
-    from os import listdir
-    from os.path import isfile, join
-    from PIL import ImageFilter
+class Outputter:
+    angle = 0
+    onlyfiles = [f for f in listdir("backgrounds") if isfile(join("backgrounds", f)) and f.endswith(('jpg', 'JPG'))]
 
-    onlyfiles = [f for f in listdir("backgrounds") if isfile(join("backgrounds", f))]
+    textProvider = TextProvider()
 
-    text = textProvider.get_text()
-    img = create_qr(text)
-    img = img.filter(ImageFilter.GaussianBlur(2))
-    img = img.rotate(angle, expand=1, fillcolor=None)
-    qrsize = img.size
-    background = Image.open("backgrounds/01.jpg", "r").convert('RGBA')
-    backgroundsize = background.size
-    xbound = backgroundsize[0] - qrsize[0]
-    ybound = backgroundsize[1] - qrsize[1]
-    dest = (random.randrange(0, xbound), random.randrange(0, ybound))
-    background.alpha_composite(img, dest=dest)
-    background.convert('RGB').save("./output/" + str(i) + ".jpg", format="JPEG")
-    angle += 10
+    avarage_colors = {}
+
+    def start(self):
+        from PIL import ImageFilter
+        bound = 360
+        for i in range(0, bound):
+
+            text = self.textProvider.get_text()
+            index = i
+            if index >= len(self.onlyfiles):
+                index = i % len(self.onlyfiles)
+            background_name = self.onlyfiles[index]
+            background = Image.open("backgrounds/" + background_name, "r")
+            average_color = None
+            if background_name in self.avarage_colors.values():
+                average_color = self.avarage_colors[background_name]
+            else:
+                average_color = background.resize((1, 1), Image.ANTIALIAS).getpixel((0, 0))
+
+            background = background.convert('RGBA')
+
+            img = create_qr(text, average_color)
+            img = img.filter(ImageFilter.GaussianBlur(1))
+            img = img.rotate(self.angle, expand=1, fillcolor=None)
+
+            dest = self.destination_point(background, img)
+
+            background.alpha_composite(img, dest=dest)
+            file_name = self.number_string(i, bound)
+            result = background.convert('RGB')
+            masked = self.masked_image(result, img, dest)
+            result.save("./output/qr_" + file_name + ".image" + ".jpg", format="JPEG")
+            masked.save("./output/qr_" + file_name + ".mask" + ".jpg", format="JPEG")
+            self.angle += 1
+
+    def masked_image(self, result, qr, destination):
+        mask = Image.new('RGB', size=qr.size, color="red")
+        masked = result.copy()
+        masked.paste(mask, box=destination)
+        return masked
+
+    def number_string(self, number, bound):
+        string = str(number)
+        bound_string = str(bound)
+        dif = len(bound_string) - len(string)
+        if dif > 0:
+            for i in range(0, dif + 1):
+                string = "0" + string
+
+        return string
+
+    def destination_point(self, background, qr):
+        qr_size = qr.size
+
+        background_size = background.size
+        x_bound = background_size[0] - qr_size[0]
+        y_bound = background_size[1] - qr_size[1]
+        dest = (random.randrange(0, x_bound), random.randrange(0, y_bound))
+        return dest
+
+
+Outputter().start()
 
