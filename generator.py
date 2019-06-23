@@ -68,5 +68,5 @@ for i in range(0, 10):
     img = create_qr(text)
     angle = random.randrange(0, 360)
     img = img.rotate(angle, expand=1, fillcolor=None)
-    img.save("" + str(i) + ".png")
+    img.save("./output/" + str(i) + ".png")
 
