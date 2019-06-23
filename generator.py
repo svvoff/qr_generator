@@ -66,11 +66,13 @@ angle = 0
 for i in range(0, 10):
     from os import listdir
     from os.path import isfile, join
+    from PIL import ImageFilter
 
     onlyfiles = [f for f in listdir("backgrounds") if isfile(join("backgrounds", f))]
 
     text = textProvider.get_text()
     img = create_qr(text)
+    img = img.filter(ImageFilter.GaussianBlur(2))
     img = img.rotate(angle, expand=1, fillcolor=None)
     qrsize = img.size
     background = Image.open("backgrounds/01.jpg", "r").convert('RGBA')
