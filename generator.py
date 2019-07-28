@@ -3,6 +3,7 @@ import random
 from os import listdir
 from os.path import isfile, join
 from PIL import Image, ImageDraw
+import numpy
 
 class ImageFactory(qrcode.image.base.BaseImage):
     """
@@ -92,18 +93,10 @@ class Outputter:
             background = background.convert('RGBA')
 
             img = create_qr(text, average_color)
-            width, height = img.size
-            m = 0.5
-            xshift = abs(m) * width
-            new_width = int(width - width / 3)
-            img = img.transform((new_width, height),
-                                Image.AFFINE,
-                                (1, m, -xshift
-                                if m > 0
-                                else 0, 0, 1, 0),
-                                Image.BICUBIC)
 
-            img = img.filter(ImageFilter.GaussianBlur(1))
+            img = self.perspective(img)
+            # blurValue = random.randrange(0, 2)
+            # img = img.filter(ImageFilter.GaussianBlur(blurValue))
             img = img.rotate(self.angle, expand=1, fillcolor=None)
 
             dest = self.destination_point(background, img)
@@ -117,6 +110,30 @@ class Outputter:
             self.angle += 1
             if self.angle > 360:
                 self.angle = bound % 360
+
+    def perspective(self, img):
+        width, height = img.size
+        m = 0.1
+        xshift = abs(m) * width
+        new_width = int(width - width / 5)
+        coeffs = self.find_coeffs(
+            [(0, 0), (256, 0), (256, 256), (0, 256)],
+            [(0, 0), (256, 0), (new_width, height), (xshift, height)])
+        return img.transform((width * 3, height * 3),
+                                Image.PERSPECTIVE,
+                                coeffs,
+                                Image.BICUBIC)
+
+    def find_coeffs(self, pa, pb):
+        matrix = []
+        for p1, p2 in zip(pa, pb):
+            matrix.append([p1[0], p1[1], 1, 0, 0, 0, -p2[0]*p1[0], -p2[0]*p1[1]])
+            matrix.append([0, 0, 0, p1[0], p1[1], 1, -p2[1]*p1[0], -p2[1]*p1[1]])
+
+        A = numpy.matrix(matrix, dtype=numpy.float)
+        B = numpy.array(pb).reshape(8)
+        res = numpy.dot(numpy.linalg.inv(A.T * A) * A.T, B)
+        return numpy.array(res).reshape(8)
 
     def masked_image(self, result, qr, destination):
         mask = Image.new('RGBA', size=qr.size, color="red")
