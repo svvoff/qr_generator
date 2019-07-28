@@ -49,6 +49,8 @@ class TextProvider:
 
 
 
+
+
 def create_qr(data, back_color="white"):
     qr = qrcode.QRCode(
         version=1,
