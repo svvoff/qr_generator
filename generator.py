@@ -44,8 +44,10 @@ class TextProvider:
 
     def get_text(self):
         length = random.randrange(20, 800)  # 20 -> 800
-        qr_string = self.text[self.read: length + self.read]
+        qr_string = self.text[self.read : length + self.read]
         self.read += length
+        if len(qr_string) < length:
+            self.read = 0
         return qr_string
 
 
@@ -75,7 +77,7 @@ class Outputter:
 
     def start(self):
         from PIL import ImageFilter
-        bound = 10
+        bound = 3600
         for i in range(0, bound):
 
             text = self.textProvider.get_text()
@@ -94,14 +96,16 @@ class Outputter:
 
             img = create_qr(text, average_color)
 
-            img = self.perspective(img)
+            # img = self.perspective(img)
             # blurValue = random.randrange(0, 2)
             # img = img.filter(ImageFilter.GaussianBlur(blurValue))
             img = img.rotate(self.angle, expand=1, fillcolor=None)
+            try:
+                dest = self.destination_point(background, img)
+                background.alpha_composite(img, dest=dest)
+            except:
+                print("fail")
 
-            dest = self.destination_point(background, img)
-
-            background.alpha_composite(img, dest=dest)
             file_name = self.number_string(i, bound)
             result = background.convert('RGB')
             masked = self.masked_image(background, img, dest)
