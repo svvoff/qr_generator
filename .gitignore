@@ -4,3 +4,6 @@ qrs.sframe/*
 output2/*
 TrainingData/*
 Validation/*
+generator/backgrounds/*
+generator/output/*
+
