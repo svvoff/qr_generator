@@ -6,4 +6,5 @@ TrainingData/*
 Validation/*
 generator/backgrounds/*
 generator/output/*
+*.pyc
 
