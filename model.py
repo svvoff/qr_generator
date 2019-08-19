@@ -1,64 +1,52 @@
 import turicreate as tc
 import os
 
-# Change if applicable
-ig02_path = 'generator/output/'
+IMAGES_DIR = 'generator/output' # Change if applicable
+csv_path = 'generator/output.csv' # assumes CSV column format is image,id,name,xMin,xMax,yMin,yMax
+csv_sf = tc.SFrame.read_csv(csv_path)
 
-print("Load all images in random order")
-raw_sf = tc.image_analysis.load_images(ig02_path, recursive=True,
-                                       random_order=True)
+def row_to_bbox_coordinates(row):
+    """
+    Takes a row and returns a dictionary representing bounding
+    box coordinates:  (center_x, center_y, width, height)  e.g. {'x': 100, 'y': 120, 'width': 80, 'height': 120}
+    """
+    return {'x': row['xMin'] + (row['xMax'] - row['xMin'])/2, 
+            'width': (row['xMax'] - row['xMin']),
+            'y': row['yMin'] + (row['yMax'] - row['yMin'])/2, 
+            'height': (row['yMax'] - row['yMin'])}
 
-# Split file names so that we can determine what kind of image each row is
-# E.g. bike_005.mask.0.png -> ['bike_005', 'mask']
-info = raw_sf['path'].apply(lambda path: os.path.basename(path).split('.')[:2])
+csv_sf['coordinates'] = csv_sf.apply(row_to_bbox_coordinates)
+print(csv_sf)
+# delete no longer needed columns
+del csv_sf['id'], csv_sf['xMin'], csv_sf['xMax'], csv_sf['yMin'], csv_sf['yMax']
+# rename columns
+# csv_sf = csv_sf.rename({'name': 'label'})
+# csv_sf = csv_sf.rename({'image': 'name'})
 
-print("Rename columns to 'name' and 'type'")
-info = info.unpack().rename({'X.0': 'name', 'X.1': 'type'})
+# Load all images in random order
+sf_images = tc.image_analysis.load_images(IMAGES_DIR, recursive=True,
+    random_order=True)
+
+# Split path to get filename
+info = sf_images['path'].apply(lambda path: os.path.basename(path).split('/')[:1])
+
+# Rename columns to 'name'
+info = info.unpack().rename({'X.0': 'name'})
 
 # Add to our main SFrame
-raw_sf = raw_sf.add_columns(info)
-
-print("Extract label (e.g. 'bike') from name (e.g. 'bike_003')")
-raw_sf['label'] = raw_sf['name'].apply(lambda name: name.split('_')[0])
+sf_images = sf_images.add_columns(info)
 
 # Original path no longer needed
-del raw_sf['path']
-
-# Split into images and masks
-sf_images = raw_sf[raw_sf['type'] == 'image']
-sf_masks = raw_sf[raw_sf['type'] == 'mask']
-
-def mask_to_bbox_coordinates(img):
-    """
-    Takes a tc.Image of a mask and returns a dictionary representing bounding
-    box coordinates: e.g. {'x': 100, 'y': 120, 'width': 80, 'height': 120}
-    """
-    import numpy as np
-    mask = img.pixel_data
-    if mask.max() == 0:
-        return None
-    # Take max along both x and y axis, and find first and last non-zero value
-    x0, x1 = np.where(mask.max(0))[0][[0, -1]]
-    y0, y1 = np.where(mask.max(1))[0][[0, -1]]
-
-    return {'x': (x0 + x1) / 2, 'width': (x1 - x0),
-            'y': (y0 + y1) / 2, 'height': (y1 - y0)}
-
-print("Convert masks to bounding boxes (drop masks that did not contain bounding box)")
-sf_masks['coordinates'] = sf_masks['image'].apply(mask_to_bbox_coordinates)
-
-# There can be empty masks (which returns None), so let's get rid of those
-sf_masks = sf_masks.dropna('coordinates')
+del sf_images['path']
 
 # Combine label and coordinates into a bounding box dictionary
-sf_masks = sf_masks.pack_columns(['label', 'coordinates'],
-                                 new_column_name='bbox', dtype=dict)
+csv_sf = csv_sf.pack_columns(['label', 'coordinates'], new_column_name='bbox', dtype=dict)
 
-print("Combine bounding boxes of the same 'name' into lists")
-sf_annotations = sf_masks.groupby('name',
-                                 {'annotations': tc.aggregate.CONCAT('bbox')})
+# Combine bounding boxes of the same 'name' into lists
+sf_annotations = csv_sf.groupby('name', 
+    {'annotations': tc.aggregate.CONCAT('bbox')})
 
-print("Join annotations with the images. Note, some images do not have annotations,")
+# Join annotations with the images. Note, some images do not have annotations,
 # but we still want to keep them in the dataset. This is why it is important to
 # a LEFT join.
 sf = sf_images.join(sf_annotations, on='name', how='left')
@@ -67,9 +55,5 @@ sf = sf_images.join(sf_annotations, on='name', how='left')
 # lists instead using fillna.
 sf['annotations'] = sf['annotations'].fillna([])
 
-# Remove unnecessary columns
-del sf['type']
-
 # Save SFrame
-print("saving")
-sf.save('qrs.sframe')
+sf.save('ig02.sframe')

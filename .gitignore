@@ -10,3 +10,4 @@ generator/output/*
 backgrounds20_000/*
 generated20_0000/*
 devOutput/*
+*.sframe/*

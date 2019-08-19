@@ -3,8 +3,9 @@ import numpy
 from text_provider import TextProvider
 from os import listdir
 from os.path import isfile, join
-from PIL import Image
+from PIL import Image, ImageColor
 import random
+from CSVManager import CSVManager
 
 
 class Outputter:
@@ -13,8 +14,7 @@ class Outputter:
         join("backgrounds", f)) and f.endswith(('jpg', 'JPG'))]
 
     textProvider = TextProvider()
-
-    avarage_colors = {}
+    csv = CSVManager()
 
     def start(self):
         from PIL import ImageFilter
@@ -27,12 +27,10 @@ class Outputter:
                 index = i % len(self.onlyfiles)
             background_name = self.onlyfiles[index]
             background = Image.open("backgrounds/" + background_name, "r")
-            average_color = None
-            if background_name in self.avarage_colors.values():
-                average_color = self.avarage_colors[background_name]
-            else:
-                average_color = background.resize(
-                    (1, 1), Image.ANTIALIAS).getpixel((0, 0))
+            average_color = background.resize((1, 1), Image.ANTIALIAS).getpixel((0, 0))
+            if not isinstance(average_color, tuple) or (isinstance(average_color, tuple) and len(average_color) > 3):
+                print("can not to find average color in image named: " + background_name + " under number: " + str(i))
+                average_color = ImageColor.getrgb('rgb(182,182,174)') # set background color from unreaded qr
 
             background = background.convert('RGBA')
 
@@ -41,20 +39,29 @@ class Outputter:
             # img = self.perspective(img)
             blurValue = random.randrange(0, 2)
             img = img.filter(ImageFilter.GaussianBlur(blurValue))
-            img = img.rotate(self.angle, expand=1, fillcolor=None)
+            img = img.rotate(self.angle, expand=True, fillcolor=None, resample=Image.BICUBIC)
             try:
                 dest = self.destination_point(background, img)
                 background.alpha_composite(img, dest=dest)
             except:
                 print("fail with " + background_name)
+                continue
 
-            file_name = self.number_string(i, bound)
+            file_number = self.number_string(i, bound)
+            file_name = 'qr_' + file_number + ".jpg"
             result = background.convert('RGB')
-            masked = self.masked_image(background, img, dest)
-            result.save("./output/qr_" + file_name +
-                        ".image" + ".jpg", format="JPEG")
-            masked.save("./output/qr_" + file_name +
-                        ".mask" + ".jpg", format="JPEG")
+            result.save("./output/" + file_name, format="JPEG")
+            width, height = img.size
+            self.csv.write(
+                imageName=file_name,
+                xMin=dest[0],
+                xMax=dest[0] + width,
+                yMin=dest[1],
+                yMax=(dest[1] + height)
+            )
+            
+            print("done: " + file_number + '/' + str(bound))
+
             self.angle += 1
             if self.angle > 360:
                 self.angle = bound % 360
@@ -91,12 +98,6 @@ class Outputter:
         B = numpy.array(source_coords).reshape(8)
         res = numpy.dot(numpy.linalg.inv(A.T * A) * A.T, B)
         return numpy.array(res).reshape(8)
-
-    def masked_image(self, result, qr, destination):
-        mask = Image.new('RGBA', size=qr.size, color="red")
-        masked = result.copy()
-        masked.paste(mask, box=destination, mask=qr)
-        return masked.convert('RGB')
 
     def number_string(self, number, bound):
         string = str(number)
