@@ -18,7 +18,7 @@ class Outputter:
 
     def start(self):
         from PIL import ImageFilter
-        bound = 1
+        bound = 20000
         for i in range(0, bound):
 
             text = self.textProvider.get_text()
@@ -38,7 +38,7 @@ class Outputter:
 
             img = create_qr(text, average_color)
 
-            img = self.perspective(img)
+            # img = self.perspective(img)
             blurValue = random.randrange(0, 2)
             img = img.filter(ImageFilter.GaussianBlur(blurValue))
             img = img.rotate(self.angle, expand=1, fillcolor=None)

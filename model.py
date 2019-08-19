@@ -2,7 +2,7 @@ import turicreate as tc
 import os
 
 # Change if applicable
-ig02_path = 'output/'
+ig02_path = 'generator/output/'
 
 print("Load all images in random order")
 raw_sf = tc.image_analysis.load_images(ig02_path, recursive=True,
