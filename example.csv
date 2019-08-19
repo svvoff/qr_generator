@@ -1,0 +1,5 @@
+image,id,name,xMin,xMax,yMin,yMax
+qr_000000.mask.jpg,1,qr,31.0,218.0,886.0,1074.0
+qr_000001.mask.jpg,1,qr,519.0,674.0,67.0,217.0
+qr_000000.image.jpg,1,qr,34.0,217.0,889.0,1067.0
+qr_000001.image.jpg,1,qr,520.0,674.0,67.0,215.0

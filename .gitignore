@@ -7,4 +7,6 @@ Validation/*
 generator/backgrounds/*
 generator/output/*
 *.pyc
-
+backgrounds20_000/*
+generated20_0000/*
+devOutput/*
