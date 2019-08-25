@@ -13,4 +13,4 @@ devOutput/*
 *.sframe/*
 *.model/*
 *.mlmodel
-
+venv/*
