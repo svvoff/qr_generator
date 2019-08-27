@@ -3,7 +3,7 @@ import random
 class TextProvider:
     read = 0
 
-    textFile = open("war.txt", "r")
+    textFile = open("./war.txt", "r")
     text = textFile.read()
     textFile.close()
 

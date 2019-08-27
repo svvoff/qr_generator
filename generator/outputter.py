@@ -1,11 +1,12 @@
 from qrcreater import create_qr
 import numpy
 from text_provider import TextProvider
-from os import listdir
+from os import listdir, makedirs
 from os.path import isfile, join
 from PIL import Image, ImageColor
 import random
-from CSVManager import CSVManager
+from BarcodeCreater import create_random_barcode
+import errno
 
 
 class Outputter:
@@ -14,7 +15,6 @@ class Outputter:
         join("backgrounds", f)) and f.endswith(('jpg', 'JPG'))]
 
     textProvider = TextProvider()
-    csv = CSVManager()
 
     def start(self):
         from PIL import ImageFilter
@@ -27,10 +27,13 @@ class Outputter:
                 index = i % len(self.onlyfiles)
             background_name = self.onlyfiles[index]
             background = Image.open("backgrounds/" + background_name, "r")
-            average_color = background.resize((1, 1), Image.ANTIALIAS).getpixel((0, 0))
+            average_color = background.resize(
+                (1, 1), Image.ANTIALIAS).getpixel((0, 0))
             if not isinstance(average_color, tuple) or (isinstance(average_color, tuple) and len(average_color) > 3):
-                print("can not to find average color in image named: " + background_name + " under number: " + str(i))
-                average_color = ImageColor.getrgb('rgb(182,182,174)') # set background color from unreaded qr
+                print("can not to find average color in image named: " +
+                      background_name + " under number: " + str(i))
+                # set background color from unreaded qr
+                average_color = ImageColor.getrgb('rgb(182,182,174)')
 
             background = background.convert('RGBA')
 
@@ -39,7 +42,8 @@ class Outputter:
             # img = self.perspective(img)
             blurValue = random.randrange(0, 2)
             img = img.filter(ImageFilter.GaussianBlur(blurValue))
-            img = img.rotate(self.angle, expand=True, fillcolor=None, resample=Image.BICUBIC)
+            img = img.rotate(self.angle, expand=True,
+                             fillcolor=None, resample=Image.BICUBIC)
             try:
                 dest = self.destination_point(background, img)
                 background.alpha_composite(img, dest=dest)
@@ -50,16 +54,17 @@ class Outputter:
             file_number = self.number_string(i, bound)
             file_name = 'qr_' + file_number + ".jpg"
             result = background.convert('RGB')
-            result.save("./output/" + file_name, format="JPEG")
+            path = 'output/qr'
+            try:
+                makedirs(path)
+            except OSError as e:
+                if e.errno != errno.EEXIST:
+                    raise
+
+            result.save(path + file_name, format="JPEG")
             width, height = img.size
-            self.csv.write(
-                imageName=file_name,
-                xMin=dest[0],
-                xMax=dest[0] + width,
-                yMin=dest[1],
-                yMax=(dest[1] + height)
-            )
-            
+            create_random_barcode('output/barcode/bc_' + file_number + '.jpg')
+
             print("done: " + file_number + '/' + str(bound))
 
             self.angle += 1
